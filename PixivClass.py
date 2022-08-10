@@ -309,8 +309,7 @@ class PixivUser(object):
 #user = PixivUser('13748038')
 #print(len(user.BookmarkList(private= True)))
 
-#image = Image('94114123')
-#image.ImageDownload()
+
 
 
 
