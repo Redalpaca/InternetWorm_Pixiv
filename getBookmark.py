@@ -42,6 +42,7 @@ BookmarkURL_mode = 'https://www.pixiv.net/ajax/user/{userID}/illusts/bookmarks?t
 #暂时只考虑公共收藏
 TotalAmount = TotalBookmarkAmount(userID)['public']
 
+
 #正式下载代码
 TotalCount = 1
 for i in range(288, TotalAmount, 48): #第一页是0
