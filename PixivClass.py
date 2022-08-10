@@ -4,6 +4,7 @@ import requests
 import os
 import imageio
 import json
+from tqdm import tqdm
 
 pixivHeaders = {
 'method':'GET',
@@ -134,6 +135,28 @@ def DownPublicBookmark(userID, high_quality:int = 0, path = 'E:/WormDownloadLib/
             #ImageDownload方法可以自动检测是否为gif
             image.ImageDownload(high_quality= high_quality, path= path)
     pass
+#支持进度条的下载
+def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixivDownloadHeaders):
+    try:
+        ResHeaders = requests.get(url, headers= headers, proxies=proxies, stream= True).headers
+        file_size = int(ResHeaders['Content-Length'])
+    except:
+        print('ERROR: Unsuccessful to obtain the content.(Perhaps the url is overdue.)')
+        file_size = 0
+    #创建进度条类
+    pbar = tqdm(
+        total= file_size, initial= 0,
+        unit= 'B', unit_scale= True, leave= True)
+    #stream元素设定当访问content元素时才获取输入流
+    res = requests.get(url, headers= headers, proxies=proxies, stream= True)
+    with open(path, 'wb') as f:
+        #使用迭代器模式获取content, 以1024Bytes为单位读取并写入本地
+        for chunk in res.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+                pbar.update(1024)#更新进度条
+    pbar.close()
+    return file_size
 
 #图片类
 class Image(object):
@@ -227,6 +250,48 @@ class Image(object):
             pass
         print('Over.')
         pass
+    #下载单个投稿中的全部图片
+    def ImageDownload_pbar(self, high_quality = 0, path = 'E:/WormDownloadLib/PixivImage/test/'):
+        if(self.ERROR == True):
+            return -1
+        #若查询不到发布时间则视为gif图
+        if(self.Time == '-1'):
+            GifDownload(self.imageID)
+        
+        #创建新文件夹
+        path = path + str(self.imageID)
+        if(not os.path.exists(path)):
+            os.makedirs(path)
+        else: #若目录已存在则说明已经下载过了
+            print('Already Down.')
+            return 0
+        
+        #选取下载URL
+        if high_quality == 0 :
+            modeURL = Image.DownloadModeURL
+        else:
+            modeURL = Image.DownloadModeURL_origin
+        #下载
+        count = 0
+        while(True):
+            imageURL = modeURL.format(Time = self.Time, ID = self.imageID, index = count)
+            #print(imageURL)
+            try:
+                res = requests.get(imageURL, headers = self.pixivDownloadHeaders, proxies=proxies, stream=True)
+                if not Status(str(res.status_code)) :
+                    break
+                Download_Pbar(imageURL, path= path + self.imageID + '.jpg' , headers=pixivDownloadHeaders)
+            except requests.exceptions.ProxyError as error:
+                #这里设置: 若代理不稳定则重复请求
+                pass
+            except Exception as error:
+                print(error)
+                break
+            print('Count:%d'%(count+1), end='\n')
+            count += 1
+            pass
+        print('Over.')
+        pass
     pass
 
 #用户类
@@ -309,7 +374,8 @@ class PixivUser(object):
 #user = PixivUser('13748038')
 #print(len(user.BookmarkList(private= True)))
 
-
+image = Image('97466312')
+image.ImageDownload_pbar()
 
 
 
