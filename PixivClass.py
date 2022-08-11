@@ -1,3 +1,4 @@
+from queue import Full
 from bs4 import BeautifulSoup
 import re
 import requests
@@ -21,8 +22,9 @@ proxies = {#在梯子底下能翻到,用的本地地址和本地端口
 'http':'http://127.0.0.1:19180',
 'https':'http://127.0.0.1:19180'
 }
+#注意其他情况: 图片被删除(报状态码404), 图是gif图(判断方式: html中查找不到发布时间)
 
-#其他情况: 图片被删除(报状态码404), 图是gif图(判断方式: html中查找不到发布时间)
+#状态判断函数
 def Status(status_code:int):
     modeStr = re.compile('2..')
     res = re.search(modeStr, str(status_code))
@@ -138,7 +140,9 @@ def DownPublicBookmark(userID, high_quality:int = 0, path = 'E:/WormDownloadLib/
 #支持进度条的下载
 def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixivDownloadHeaders):
     try:
-        ResHeaders = requests.get(url, headers= headers, proxies=proxies, stream= True).headers
+        #stream元素设定当访问content元素时才获取输入流
+        res = requests.get(url, headers= headers, proxies= proxies, stream= True)
+        ResHeaders = res.headers
         file_size = int(ResHeaders['Content-Length'])
     except:
         print('ERROR: Unsuccessful to obtain the content.(Perhaps the url is overdue.)')
@@ -147,8 +151,6 @@ def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixiv
     pbar = tqdm(
         total= file_size, initial= 0,
         unit= 'B', unit_scale= True, leave= True)
-    #stream元素设定当访问content元素时才获取输入流
-    res = requests.get(url, headers= headers, proxies=proxies, stream= True)
     with open(path, 'wb') as f:
         #使用迭代器模式获取content, 以1024Bytes为单位读取并写入本地
         for chunk in res.iter_content(chunk_size=1024):
@@ -196,7 +198,6 @@ class Image(object):
         except:
             self.Time = '-1'
         pass
-    
     #仅获取第一张图片的url(通过index可修改)
     def GetDownloadURL(self, high_quality = 0, index = 0):
         if high_quality == 0 :
@@ -206,9 +207,8 @@ class Image(object):
         imageURL = modeURL.format(Time = self.Time, ID = self.imageID, index = index)
         return imageURL
         pass
-    
-    #下载单个投稿中的全部图片
-    def ImageDownload(self, high_quality = 0, path = 'E:/WormDownloadLib/PixivImage/test/'):
+    #下载单个投稿中的全部图片(拼接url版, url防越界是通过异常捕获及状态码检测实现的)
+    def ImageDownload_old(self, high_quality = 0, path = 'E:/WormDownloadLib/PixivImage/test/'):
         if(self.ERROR == True):
             return -1
         #若查询不到发布时间则视为gif图
@@ -292,6 +292,55 @@ class Image(object):
             pass
         print('Over.')
         pass
+    #获取单个投稿的图片下载url序列 (通过拼接url也可以完成选择图片质量的功能)
+    def UrlList(self, Quality = 'regular'):
+        """_summary_
+        Args:
+            Quality: Including:[small, regular, origin]. Defaults to 'regular'.
+        """
+        apiURL_mode = 'https://www.pixiv.net/ajax/illust/{imageID}/pages?lang=zh'
+        apiURL = apiURL_mode.format(imageID = self.imageID)
+        res = requests.get(apiURL, headers= pixivHeaders, proxies= proxies)
+        dict_0 = json.loads(res.text)
+        FullList = dict_0['body']
+        
+        urlList = []
+        for element in FullList:
+            urlList.append(element['urls'][Quality])
+        return urlList
+    #下载单个投稿中的全部图片, 效率较高的版本, 选择pbar参数可支持进度条显示
+    def ImageDownload(self, Quality = 'regular', pbar = False, path = 'E:/WormDownloadLib/PixivImage/test/'):
+        if(self.ERROR == True):
+            return -1
+        #若查询不到发布时间则视为gif图
+        if(self.Time == '-1'):
+            GifDownload(self.imageID)
+        #创建新文件夹
+        path = path + str(self.imageID)
+        if(not os.path.exists(path)):
+            os.makedirs(path)
+        else: #若目录已存在则说明已经下载过了
+            print('Already Down.')
+            return 0
+        
+        #获取下载列表
+        urlList = self.UrlList(Quality= Quality)
+        print('Downloading: %s'%self.imageID)
+        #是否启用进度条? 
+        if pbar == True:
+            for index, url in enumerate(urlList, 1):
+                print('Downloading, count = %d'%index)
+                dst = path+ '/' + self.imageID+ '_' + str(index) + '.jpg'
+                Download_Pbar(url, path = dst)
+        else:
+            for index, url in enumerate(urlList, 1):
+                print('Downloading, count = %d'%index)
+                res = requests.get(url, headers= pixivDownloadHeaders, proxies= proxies, stream= True)
+                dst = path+ '/' + self.imageID+ '_' + str(index) + '.jpg'
+                with open(dst, 'wb') as f:
+                    f.write(res.content)
+        print('Download over.')
+        pass
     pass
 
 #用户类
@@ -371,12 +420,12 @@ class PixivUser(object):
     
     pass
 
-#user = PixivUser('13748038')
+#user = PixivUser('')
 #print(len(user.BookmarkList(private= True)))
 
-image = Image('97466312')
-image.ImageDownload_pbar()
-
+#image = Image('')
+#image.ImageDownload_pbar()
+#image.ImageDownload()
 
 
 
