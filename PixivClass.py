@@ -1,4 +1,5 @@
 from queue import Full
+from unicodedata import name
 from bs4 import BeautifulSoup
 import re
 import requests
@@ -55,7 +56,7 @@ def Unzip(path_zip, path_save):
     os.system(commad)
     pass
 #Gif下载函数
-def GifDownload(imageID):
+def GifDownload(imageID, pbar = False):
     #包含图片文件zip的api
     gif_apiURL_mode = 'https://www.pixiv.net/ajax/illust/{imageID}/ugoira_meta?lang=zh'
     gif_apiURL = gif_apiURL_mode.format(imageID = imageID)
@@ -74,13 +75,19 @@ def GifDownload(imageID):
     html = res.text
     dict_0 = json.loads(html)
     zipURL = dict_0['body']['src']
-    #zipURL_origin = dict_0['body']['originalSrc']
+    #获取原图: zipURL_origin = dict_0['body']['originalSrc']
     print(dict_0['body']['src'])
+    
     #下载zip文件
-    res = requests.get(zipURL, headers= pixivDownloadHeaders, proxies= proxies)
-    print(res)
-    with open(path_zip, 'wb') as f:
-        f.write(res.content)
+    if pbar == False:
+        res = requests.get(zipURL, headers= pixivDownloadHeaders, proxies= proxies)
+        print(res)
+        with open(path_zip, 'wb') as f:
+            f.write(res.content)
+    else:
+        Download_Pbar(zipURL, path= path_zip)
+        pass
+    
     print('.zip download over.')
     #解压zip文件为图片, 存储至特定路径
     Unzip(path_zip, path_image)
@@ -144,7 +151,8 @@ def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixiv
         res = requests.get(url, headers= headers, proxies= proxies, stream= True)
         ResHeaders = res.headers
         file_size = int(ResHeaders['Content-Length'])
-    except:
+    except Exception as e:
+        print(e)
         print('ERROR: Unsuccessful to obtain the content.(Perhaps the url is overdue.)')
         file_size = 0
     #创建进度条类
@@ -159,6 +167,15 @@ def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixiv
                 pbar.update(1024)#更新进度条
     pbar.close()
     return file_size
+#列表下载函数
+def ListDownload(IDlist, Quality = 'regular', pbar = False, path = 'E:/WormDownloadLib/PixivImage/test/'):
+    for imageID in IDlist:
+        Tempimage = Image(imageID)
+        Tempimage.ImageDownload(Quality= Quality, path= path, pbar= pbar)
+        print('\n')
+        pass
+    pass
+
 
 #图片类
 class Image(object):
@@ -314,7 +331,7 @@ class Image(object):
             return -1
         #若查询不到发布时间则视为gif图
         if(self.Time == '-1'):
-            GifDownload(self.imageID)
+            GifDownload(self.imageID, pbar= pbar)
         #创建新文件夹
         path = path + str(self.imageID)
         if(not os.path.exists(path)):
@@ -346,6 +363,7 @@ class Image(object):
 #用户类
 class PixivUser(object):
     mode = 'https://www.pixiv.net/users/'
+    #类构造方法
     def __init__(self, userID):
         self.userID = userID
         self.SpaceUrl = PixivUser.mode + userID
@@ -420,15 +438,13 @@ class PixivUser(object):
     
     pass
 
-#user = PixivUser('')
-#print(len(user.BookmarkList(private= True)))
-
-#image = Image('')
-#image.ImageDownload_pbar()
-#image.ImageDownload()
-
-
-
+#主调函数
+def main():
+    #image = Image('')
+    #image.ImageDownload(pbar= True)
+    pass
+if __name__ == '__main__':
+    main()
 
 
 
