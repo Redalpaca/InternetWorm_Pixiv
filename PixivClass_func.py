@@ -5,6 +5,7 @@ import os
 from PixivClass import Image
 import json
 import imageio
+import tqdm
 #重要提醒: gif下载函数需要unzip第三方工具支持
 """_summary_
     需要PixivClass中的类支持的其他函数会存放到这个模块中
@@ -141,8 +142,36 @@ def DownPublicBookmark(userID, high_quality:int = 0, path = 'E:/WormDownloadLib/
             #ImageDownload方法可以自动检测是否为gif
             image.ImageDownload(high_quality= high_quality, path= path)
     pass
-
-def DownAuthorIllst(authorID):
+#支持进度条的下载
+#注意不要反复发送请求
+def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixivDownloadHeaders):
+    try:
+        #stream元素设定当访问content元素时才获取输入流
+        res = requests.get(url, headers= headers, proxies= proxies, stream= True)
+        ResHeaders = res.headers
+        file_size = int(ResHeaders['Content-Length'])
+    except:
+        print('ERROR: Unsuccessful to obtain the content.(Perhaps the url is overdue.)')
+        file_size = 0
+    #创建进度条类
+    pbar = tqdm(
+        total= file_size, initial= 0,
+        unit= 'B', unit_scale= True, leave= True)
+    with open(path, 'wb') as f:
+        #使用迭代器模式获取content, 以1024Bytes为单位读取并写入本地
+        for chunk in res.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+                pbar.update(1024)#更新进度条
+    pbar.close()
+    return file_size
+#列表下载函数
+def ListDownload(IDlist, Quality = 'regular', pbar = False, path = 'E:/WormDownloadLib/PixivImage/test/'):
+    for imageID in IDlist:
+        Tempimage = Image(imageID)
+        Tempimage.ImageDownload(Quality= Quality, path= path, pbar= pbar)
+        pass
+    print('\n')
     pass
 
 #DownPublicBookmark(userID='13748038', path='E:/WormDownloadLib/PixivImage/alpaca/', BeginPage=7)
