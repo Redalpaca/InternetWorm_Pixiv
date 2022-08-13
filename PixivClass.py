@@ -215,6 +215,11 @@ class Image(object):
         except:
             self.Time = '-1'
         pass
+    #获取tag
+    def GetTag(self):
+        mode = '{"tag":"(.*?)",.*?}'
+        TagList = re.findall(mode, self.res.text)
+        return TagList
     #仅获取第一张图片的url(通过index可修改)
     def GetDownloadURL(self, high_quality = 0, index = 0):
         if high_quality == 0 :
@@ -224,6 +229,15 @@ class Image(object):
         imageURL = modeURL.format(Time = self.Time, ID = self.imageID, index = index)
         return imageURL
         pass
+    #获取互动信息 (以后可依据like或收藏数目对获取的url列表进行排序)
+    #暂且写下思路: 构造出imageID-likeCount形式的元组列表(因为字典是随机存储的), 再进行排序
+    def GetInfo(self):
+        mode = '.{200}64161.{50}'
+        mode = '"pageCount":(\d+),"bookmarkCount":(\d+),"likeCount":(\d+),"commentCount":(\d+),"responseCount":\d+,"viewCount":(\d+)'
+        res = re.search(mode, self.res.text).group(0)
+        res = '{' + res + '}'
+        InfoDict = json.loads(res)
+        return InfoDict
     #下载单个投稿中的全部图片(拼接url版, url防越界是通过异常捕获及状态码检测实现的)
     def ImageDownload_old(self, high_quality = 0, path = 'E:/WormDownloadLib/PixivImage/test/'):
         if(self.ERROR == True):
@@ -267,49 +281,7 @@ class Image(object):
             pass
         print('Over.')
         pass
-    #下载单个投稿中的全部图片
-    def ImageDownload_pbar(self, high_quality = 0, path = 'E:/WormDownloadLib/PixivImage/test/'):
-        if(self.ERROR == True):
-            return -1
-        #若查询不到发布时间则视为gif图
-        if(self.Time == '-1'):
-            GifDownload(self.imageID)
-        
-        #创建新文件夹
-        path = path + str(self.imageID)
-        if(not os.path.exists(path)):
-            os.makedirs(path)
-        else: #若目录已存在则说明已经下载过了
-            print('Already Down.')
-            return 0
-        
-        #选取下载URL
-        if high_quality == 0 :
-            modeURL = Image.DownloadModeURL
-        else:
-            modeURL = Image.DownloadModeURL_origin
-        #下载
-        count = 0
-        while(True):
-            imageURL = modeURL.format(Time = self.Time, ID = self.imageID, index = count)
-            #print(imageURL)
-            try:
-                res = requests.get(imageURL, headers = self.pixivDownloadHeaders, proxies=proxies, stream=True)
-                if not Status(str(res.status_code)) :
-                    break
-                Download_Pbar(imageURL, path= path + self.imageID + '.jpg' , headers=pixivDownloadHeaders)
-            except requests.exceptions.ProxyError as error:
-                #这里设置: 若代理不稳定则重复请求
-                pass
-            except Exception as error:
-                print(error)
-                break
-            print('Count:%d'%(count+1), end='\n')
-            count += 1
-            pass
-        print('Over.')
-        pass
-    #获取单个投稿的图片下载url序列 (通过拼接url也可以完成选择图片质量的功能)
+    #获取单个投稿的图片下载url序列 (该方法直接调用api即可获取不同质量图片的url序列, 当然拼接url也可以完成选择图片质量的功能)
     def UrlList(self, Quality = 'regular'):
         """_summary_
         Args:
@@ -438,9 +410,12 @@ class PixivUser(object):
     
     pass
 
+#总体类
+
 #主调函数
 def main():
-    #image = Image('')
+    image = Image('97894564')
+    image.GetInfo()
     #image.ImageDownload(pbar= True)
     pass
 if __name__ == '__main__':
