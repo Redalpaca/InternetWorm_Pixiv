@@ -186,11 +186,14 @@ def ListImageInfo(IDlist, key = 'like', sorted = False):
     inputDict = {'like':'likeCount', 'bookmark':'bookmarkCount', 'view':'viewCount', 'comment':'commentCount'}
     mode = inputDict[key]
     TupleList = []
+    #创建进度条
+    pbar = tqdm(total= len(IDlist), unit_scale= True, unit= '', leave= True, desc= 'Visit Image')
     for id in IDlist:
         image = Image(id)
         Count = image.GetInfo()[mode]
         Tuple = (Count, id)
         TupleList.append(Tuple)
+        pbar.update(1)
     if sorted:
         return sorted(TupleList, reverse= True)
     return TupleList
@@ -433,6 +436,24 @@ class PixivUser(object):
     pass
 
 #总体类
+class Pixiv(object):
+    def __init__(self, url):
+        self.Error = False
+        try:
+            self.res = requests.get(url, headers= pixivHeaders, proxies= proxies)
+        except:
+            self.Error = True
+    def search(self, key):
+        url_search = 'https://www.pixiv.net/tags/{key}/artworks?s_mode=s_tag'.format(key = key)
+        
+        pass
+
+    
+    
+    
+    pass
+
+
 
 #主调函数
 def main():
@@ -442,6 +463,7 @@ def main():
     pass
 if __name__ == '__main__':
     main()
+
 
 
 
