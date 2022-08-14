@@ -1,5 +1,3 @@
-from queue import Full
-from unicodedata import name
 from bs4 import BeautifulSoup
 import re
 import requests
@@ -176,6 +174,31 @@ def ListDownload(IDlist, Quality = 'regular', pbar = False, path = 'E:/WormDownl
         pass
     pass
 
+#类似热门搜索的功能, 传入imageID的列表, 将对应的互动信息(收藏/点赞等)将其zip成一个列表
+#可以使用堆排序快速排前n个元素, 暂且不写先
+def ListImageInfo(IDlist, key = 'like', sorted = False):
+    #19.29s
+    """_summary_
+    Args:
+        IDlist (List): Require a List combine by imageID(str)
+        key (str, optional): Allowed descript:like, bookmark, view, comment.
+    """
+    inputDict = {'like':'likeCount', 'bookmark':'bookmarkCount', 'view':'viewCount', 'comment':'commentCount'}
+    mode = inputDict[key]
+    TupleList = []
+    for id in IDlist:
+        image = Image(id)
+        Count = image.GetInfo()[mode]
+        Tuple = (Count, id)
+        TupleList.append(Tuple)
+    if sorted:
+        return sorted(TupleList, reverse= True)
+    return TupleList
+#将元组列表解压开
+def UnzipList(TupleList):
+    return list(zip(*TupleList))[1]
+
+
 
 #图片类
 class Image(object):
@@ -232,7 +255,6 @@ class Image(object):
     #获取互动信息 (以后可依据like或收藏数目对获取的url列表进行排序)
     #暂且写下思路: 构造出imageID-likeCount形式的元组列表(因为字典是随机存储的), 再进行排序
     def GetInfo(self):
-        mode = '.{200}64161.{50}'
         mode = '"pageCount":(\d+),"bookmarkCount":(\d+),"likeCount":(\d+),"commentCount":(\d+),"responseCount":\d+,"viewCount":(\d+)'
         res = re.search(mode, self.res.text).group(0)
         res = '{' + res + '}'
@@ -415,7 +437,7 @@ class PixivUser(object):
 #主调函数
 def main():
     image = Image('97894564')
-    image.GetInfo()
+    print(image.GetInfo())
     #image.ImageDownload(pbar= True)
     pass
 if __name__ == '__main__':
