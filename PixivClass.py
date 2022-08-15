@@ -1,3 +1,4 @@
+from operator import index
 from bs4 import BeautifulSoup
 import re
 import requests
@@ -144,15 +145,16 @@ def DownPublicBookmark(userID, high_quality:int = 0, path = 'E:/WormDownloadLib/
     pass
 #支持进度条的下载
 def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixivDownloadHeaders):
+    #stream元素设定当访问content元素时才获取输入流
     try:
-        #stream元素设定当访问content元素时才获取输入流
         res = requests.get(url, headers= headers, proxies= proxies, stream= True)
         ResHeaders = res.headers
-        file_size = int(ResHeaders['Content-Length'])
+        file_size = int(ResHeaders['content-length'])
     except Exception as e:
         print(e)
-        print('ERROR: Unsuccessful to obtain the content.(Perhaps the url is overdue.)')
+        print('Unsuccessful to obtain the content-Lenth.')
         file_size = 0
+    #print(ResHeaders.keys())
     #创建进度条类
     pbar = tqdm(
         total= file_size, initial= 0,
@@ -165,18 +167,42 @@ def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixiv
                 pbar.update(1024)#更新进度条
     pbar.close()
     return file_size
-#列表下载函数
-def ListDownload(IDlist, Quality = 'regular', pbar = False, path = 'E:/WormDownloadLib/PixivImage/test/'):
-    for imageID in IDlist:
-        Tempimage = Image(imageID)
-        Tempimage.ImageDownload(Quality= Quality, path= path, pbar= pbar)
-        print('\n')
+#列表下载函数, 可选下载模式
+def ListDownload(IDlist, Quality = 'regular', pbar = False, path = 'E:/WormDownloadLib/PixivImage/test/', order = '-1'):
+    """_summary_
+    Args:
+        Quality (str, optional): Including:[small, regular, origin]
+        pbar (bool, optional): Whether user apply the pbar
+        order (bool, optional): Allows 3 mode: no / 1 / -1.
+    """
+    if order == 'no':
+        for imageID in IDlist:
+                Tempimage = Image(imageID)
+                Tempimage.ImageDownload(Quality= Quality, path= path, pbar= pbar, order= order)
+                print('\n')
+        return
+    elif order == 1:
+        index = 1
+        for imageID in IDlist:
+            Tempimage = Image(imageID)
+            Tempimage.ImageDownload(Quality= Quality, path= path, pbar= pbar, order= str(index))
+            index += 1
+            print('\n')
         pass
-    pass
+    else:
+        for imageID in IDlist:
+            Tempimage = Image(imageID)
+            Tempimage.ImageDownload(Quality= Quality, path= path, pbar= pbar)
+            print('\n')
+            pass
+    return True
 
+#将元组列表解压开
+def UnzipList(TupleList):
+    return list(zip(*TupleList))[1]
 #类似热门搜索的功能, 传入imageID的列表, 将对应的互动信息(收藏/点赞等)将其zip成一个列表
 #可以使用堆排序快速排前n个元素, 暂且不写先
-def ListImageInfo(IDlist, key = 'like', sorted = False):
+def Sort_by_Info(IDlist, key = 'like', sorted_ = True, zipped = False):
     #19.29s
     """_summary_
     Args:
@@ -187,19 +213,20 @@ def ListImageInfo(IDlist, key = 'like', sorted = False):
     mode = inputDict[key]
     TupleList = []
     #创建进度条
-    pbar = tqdm(total= len(IDlist), unit_scale= True, unit= '', leave= True, desc= 'Visit Image')
+    pbar = tqdm(total= len(IDlist), unit_scale= True, leave= True, desc= 'Visiting Image')
     for id in IDlist:
         image = Image(id)
         Count = image.GetInfo()[mode]
         Tuple = (Count, id)
         TupleList.append(Tuple)
         pbar.update(1)
-    if sorted:
+    #print(TupleList)
+    if sorted_ and zipped:
+        return UnzipList(sorted(TupleList, reverse= True))
+    elif sorted_ == True:
         return sorted(TupleList, reverse= True)
     return TupleList
-#将元组列表解压开
-def UnzipList(TupleList):
-    return list(zip(*TupleList))[1]
+
 
 
 
@@ -323,19 +350,34 @@ class Image(object):
             urlList.append(element['urls'][Quality])
         return urlList
     #下载单个投稿中的全部图片, 效率较高的版本, 选择pbar参数可支持进度条显示
-    def ImageDownload(self, Quality = 'regular', pbar = False, path = 'E:/WormDownloadLib/PixivImage/test/'):
+    def ImageDownload(self, Quality = 'regular', pbar = False, order = '-1', path = 'E:/WormDownloadLib/PixivImage/test/'):
         if(self.ERROR == True):
             return -1
         #若查询不到发布时间则视为gif图
         if(self.Time == '-1'):
             GifDownload(self.imageID, pbar= pbar)
+        
+        #若order== -1, 则每组图像创建文件夹的名称为自己的imageID
+        #若order==其他数字, 则每组图像创建文件夹的名称为序号
+        #若order== no, 则就地在当前目录下保存图片
         #创建新文件夹
-        path = path + str(self.imageID)
-        if(not os.path.exists(path)):
-            os.makedirs(path)
-        else: #若目录已存在则说明已经下载过了
-            print('Already Down.')
-            return 0
+        if order == '-1':
+            path = path + str(self.imageID)
+            if(not os.path.exists(path)):
+                os.makedirs(path)
+            else: #若目录已存在则说明已经下载过了
+                print('Already Down.')
+                return 0
+        elif order != 'no': 
+            path = path + order
+            if(not os.path.exists(path)):
+                os.makedirs(path)
+            else: #若目录已存在则说明已经下载过了
+                print('Already Down.')
+                return 0
+        if order == 'no':
+            path = path.rstrip('/')
+            pass
         
         #获取下载列表
         urlList = self.UrlList(Quality= Quality)
@@ -457,9 +499,18 @@ class Pixiv(object):
 
 #主调函数
 def main():
-    image = Image('97894564')
-    print(image.GetInfo())
-    #image.ImageDownload(pbar= True)
+    user = PixivUser('13748038')
+    bookmark = user.BookmarkList()
+    ListDownload(bookmark, pbar= True, order= 'no')
+    
+    """
+    user = PixivUser('38300640')
+    illuList = user.IllustList()
+    TupleList = Sort_by_Info(illuList, sorted_ = True, key = 'like', zipped= True)
+    print(TupleList)
+    #TupleList = [(3472, '100259796'), (5005, '100064246'), (8125, '99528792'), (5247, '99413305'), (6091, '98962543'), (3378, '98742852'), (3177, '98301141'), (3697, '98001015'), (7807, '97673282'), (4909, '97388839'), (7764, '97197212'), (13800, '97031923'), (4641, '96821845'), (5332, '96542721'), (6768, '96261343'), (5943, '95913768'), (3454, '95705035'), (3853, '95446830'), (4080, '95096526'), (3554, '95006951'), (4867, '94763715'), (6577, '94524512'), (5113, '94219716'), (6075, '94049975'), (7268, '93964572'), (4054, '93490963'), (6268, '93180673'), (5574, '93015950'), (4139, '92563843'), (3244, '92388683'), (3169, '92191484'), (3133, '92088510'), (6009, '91799918'), (3800, '91634860'), (4450, '90831315'), (7545, '90603082'), (4679, '90522470'), (23656, '90349981'), (6298, '89998856'), (3272, '89956880'), (3443, '89526527'), (1283, '89083890'), (987, '88501075'), (1762, '88265253'), (876, '88228417'), (1113, '88043086'), (221, '86401910'), (459, '86361483'), (697, '86015959'), (191, '85963481')]
+    ListDownload(TupleList, order= True, pbar= True)
+    """
     pass
 if __name__ == '__main__':
     main()
