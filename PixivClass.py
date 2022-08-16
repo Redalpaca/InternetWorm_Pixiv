@@ -64,7 +64,7 @@ def GifDownload(imageID, pbar = False):
     path_image = f'E:/WormDownloadLib/PixivImage/GifTest/ImageSave/{imageID}/'
     path_gif = f'E:/WormDownloadLib/PixivImage/GifTest/GifSave/{imageID}.gif'
     if os.path.exists(path_gif):
-        print('%s already exist.'%path_gif)
+        print('%s already exist.'%path_gif, end='\n')
         return
     #从api网页中获取zip文件的下载链接
     res = requests.get(gif_apiURL, headers=pixivHeaders, proxies=proxies)
@@ -150,9 +150,13 @@ def Download_Pbar(url, path = 'C:/Users/DELL/Desktop/test1.jpg', headers = pixiv
         res = requests.get(url, headers= headers, proxies= proxies, stream= True)
         ResHeaders = res.headers
         file_size = int(ResHeaders['content-length'])
-    except Exception as e:
+    except KeyError as e:
         print(e)
         print('Unsuccessful to obtain the content-Lenth.')
+        file_size = 0
+    except Exception as e:
+        print(e)
+        res = requests.get(url, headers= headers, proxies= proxies, stream= True)
         file_size = 0
     #print(ResHeaders.keys())
     #创建进度条类
@@ -200,7 +204,7 @@ def ListDownload(IDlist, Quality = 'regular', pbar = False, path = 'E:/WormDownl
 #将元组列表解压开
 def UnzipList(TupleList):
     return list(zip(*TupleList))[1]
-#类似热门搜索的功能, 传入imageID的列表, 将对应的互动信息(收藏/点赞等)将其zip成一个列表
+#类似热门搜索的功能, 传入imageID的列表, 将对应的互动信息(收藏/点赞等)将其zip成一个列表, 可选择将其排序并解压为id列表(可直接传入并下载)
 #可以使用堆排序快速排前n个元素, 暂且不写先
 def Sort_by_Info(IDlist, key = 'like', sorted_ = True, zipped = False):
     #19.29s
@@ -357,8 +361,8 @@ class Image(object):
         if(self.Time == '-1'):
             GifDownload(self.imageID, pbar= pbar)
         
-        #若order== -1, 则每组图像创建文件夹的名称为自己的imageID
-        #若order==其他数字, 则每组图像创建文件夹的名称为序号
+        #若order== -1(默认模式), 则每组图像创建文件夹的名称为自己的imageID
+        #若order==其他数字, 则每组图像创建文件夹的名称为序号1 2 3 4..等
         #若order== no, 则就地在当前目录下保存图片
         #创建新文件夹
         if order == '-1':
@@ -447,7 +451,7 @@ class PixivUser(object):
             privateCount = dict_0['body']['private'][0]['cnt']
             return privateCount
     #获取用户的书签序列   
-    def BookmarkList(self, private = False):
+    def BookmarkList(self, private = False, page = 1):
         #begin参数是从第几项收藏开始, Limit是一页显示几项, rest参数表示是否公开
         BookmarkURL_mode = 'https://www.pixiv.net/ajax/user/{userID}/illusts/bookmarks?tag=&offset={Begin}&limit={Limit}&rest={rest}&lang=zh' 
         if private:
@@ -456,7 +460,9 @@ class PixivUser(object):
             rest = 'show'
         TotalAmount = self.BookmarkAmount(private)
         BookmarkList = []
-        for i in range(0, TotalAmount, 48): #第一页是0
+        
+        begin = (page-1)*48
+        for i in range(begin, TotalAmount, 48): #第一页是0
             #BookmarkURL是pixiv的api, 用以存储书签信息 (JSON格式的数据)
             BookmarkURL = BookmarkURL_mode.format(Begin = str(i), Limit = '48', userID = self.userID, rest = rest) 
             res = requests.get(BookmarkURL, headers=pixivHeaders, proxies=proxies)
@@ -499,9 +505,9 @@ class Pixiv(object):
 
 #主调函数
 def main():
-    user = PixivUser('13748038')
-    bookmark = user.BookmarkList()
-    ListDownload(bookmark, pbar= True, order= 'no')
+    #user = PixivUser('13748038')
+    #bookmark = user.BookmarkList(page=1)
+    #ListDownload(bookmark, pbar= True, order= '-1', path='E:/WormDownloadLib/PixivImage/Ordertest/')
     
     """
     user = PixivUser('38300640')
