@@ -8,7 +8,10 @@ import json
 from tqdm import tqdm
 from PixivClass import Image
 import threading
+from multiprocessing import Pool
 
+from PixivClass import PixivUser
+#python的多线程是真实线程, 但是解释器自带锁, 只能在一个CPU上执行, 只有使用多进程才有可能实现并发
 
 pixivHeaders = {
 'method':'GET',
@@ -256,6 +259,13 @@ class ThreadImage(object):
         pass    
     pass
 
+class ThreadTest(threading.Thread):
+    
+    
+    
+    
+    pass
+
 #线程不能封装, 否则依然顺序执行
 def Thread_single(imageID):
     image = Image(imageID)
@@ -280,9 +290,49 @@ def main():
     thread_2.join()
     pass
 
+def main_1(IDList, processes= 4):
+    pool = Pool(processes= processes)
+    args_mode = ('regular', False, '-1', 'C:/Users/DELL/Desktop/')
+
+    tempIDList = ['100176009','97186686','100634717','100612711']
+    for i in range(4):
+        try:
+            image = Image(tempIDList[i])
+        except:
+            image = Image('100176009')
+            pass
+        pool.apply_async(image.ImageDownload, args= args_mode)
+        pass
+    pool.close()
+    pool.join()
+    
+    pass
+
+def ImageDownload_processes(IDList, processes= 4, args_mode = ('regular', False, '-1', 'C:/Users/DELL/Desktop/test/')):
+    step = processes
+    #将id列表分组, 使进程池里一组进程
+    groupList = [IDList[i:i+step] for i in range(0,len(IDList),step)]
+    #tempIDList = ['100176009','97186686','100634717','100612711']
+    for group in groupList:
+        pool = Pool(processes= processes)
+        for i in range(processes):
+            try:
+                image = Image(group[i])
+                pool.apply_async(image.ImageDownload, args= args_mode)
+            except Exception:
+                pass
+            pass
+        pool.close()
+        pool.join()
+    print('\n\nIllusitrations are downloaded over.')
+    pass
+
+
 
 if __name__ == '__main__':
-    main()
+    user = PixivUser('69445995')
+    ids = user.IllustList()
+    ImageDownload_processes(IDList= ids)
     pass
 
 
